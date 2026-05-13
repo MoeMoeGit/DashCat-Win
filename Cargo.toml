@@ -1,8 +1,8 @@
 [package]
 name = "dashcat-win"
-version = "0.2.0"
+version = "0.4.0"
 edition = "2021"
-description = "DashCat for Windows - System tray app with monitoring and sleep prevention"
+description = "DashCat - System tray monitor for Windows 11"
 authors = ["MoeMoeGit"]
 license = "MIT"
 
@@ -10,6 +10,8 @@ license = "MIT"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 png = "0.17"
+rusqlite = { version = "0.31", features = ["bundled"] }
+clipboard-rs = "0.3"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.54", features = [

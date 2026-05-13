@@ -3,6 +3,7 @@
 //! A lightweight system monitoring tool that displays CPU/Memory usage
 //! in the system tray with a cute animated cat icon.
 
+mod clipboard;
 mod config;
 mod monitor;
 mod power;
