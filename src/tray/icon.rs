@@ -39,7 +39,9 @@ impl TrayIcon {
             szTip: [0; 128], ..Default::default()
         };
 
-        let tip_wide: Vec<u16> = "DashCat".encode_utf16().chain(std::iter::once(0)).collect();
+        // Dynamic tooltip with current stats
+        let tip = "DashCat - System Monitor";
+        let tip_wide: Vec<u16> = tip.encode_utf16().chain(std::iter::once(0)).collect();
         for (i, &c) in tip_wide.iter().take(127).enumerate() { nid.szTip[i] = c; }
 
         unsafe { Shell_NotifyIconW(NOTIFY_ICON_MESSAGE(NIM_ADD), &nid); }
@@ -57,18 +59,28 @@ impl TrayIcon {
         Ok(())
     }
 
-    pub fn update(&mut self, hwnd: HWND, id: usize, _cpu: f32, _mem: f32) {
+    pub fn update(&mut self, hwnd: HWND, id: usize, cpu: f32, mem: f32) {
         self.current_frame = (self.current_frame + 1) % 5;
         if let Some(old) = self.hicon.take() { unsafe { let _ = DestroyIcon(old); } }
 
         if let Ok(icon) = self.create_icon_from_frame(self.current_frame) {
             self.hicon = Some(icon);
-            let nid = NOTIFYICONDATAW {
+
+            // Update tooltip with current values
+            let tip = format!("DashCat\nCPU: {:.0}% | Mem: {:.0}%", cpu, mem);
+            let tip_wide: Vec<u16> = tip.encode_utf16().chain(std::iter::once(0)).collect();
+
+            let mut nid = NOTIFYICONDATAW {
                 cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
                 hWnd: hwnd, uID: id as u32,
-                uFlags: NOTIFY_ICON_DATA_FLAGS(NIF_ICON), hIcon: icon,
+                uFlags: NOTIFY_ICON_DATA_FLAGS(NIF_ICON | NIF_TIP),
+                hIcon: icon,
+                szTip: [0; 128],
                 ..Default::default()
             };
+
+            for (i, &c) in tip_wide.iter().take(127).enumerate() { nid.szTip[i] = c; }
+
             unsafe { Shell_NotifyIconW(NOTIFY_ICON_MESSAGE(NIM_MODIFY), &nid); }
         }
     }
