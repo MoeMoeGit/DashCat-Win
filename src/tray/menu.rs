@@ -13,6 +13,10 @@ impl TrayMenu {
     pub unsafe fn show(&mut self, hwnd: HWND, monitor_mode: MonitorMode, display_mode: DisplayMode, caffeine_mode: CaffeineMode) {
         self.hmenu = CreatePopupMenu().unwrap_or_default();
 
+        // Version info (grayed out, first line)
+        let _ = AppendMenuW(self.hmenu, MF_STRING | MF_GRAYED, 0, w!("DashCat v0.1.0"));
+        let _ = AppendMenuW(self.hmenu, MF_SEPARATOR, 0, w!(""));
+
         // Monitor section
         let _ = AppendMenuW(self.hmenu, MF_STRING | MF_GRAYED, 0, w!("Monitor Mode"));
         let _ = AppendMenuW(self.hmenu, MF_STRING | check(monitor_mode == MonitorMode::Combined), 100, w!("  Combined"));
