@@ -4,7 +4,8 @@ mod icon;
 mod menu;
 
 use crate::config::{CaffeineMode, DisplayMode, MonitorMode, Settings};
-use crate::monitor::{CpuMonitor, MemoryMonitor, SystemStats};
+use crate::monitor::{CpuMonitor, MemoryMonitor};
+use crate::power::Caffeine;
 use icon::TrayIcon;
 use menu::TrayMenu;
 
@@ -24,10 +25,7 @@ const TIMER_ID: usize = 1;
 /// Global application state
 static RUNNING: AtomicBool = AtomicBool::new(false);
 static SETTINGS: Mutex<Option<Settings>> = Mutex::new(None);
-static STATS: Mutex<SystemStats> = Mutex::new(SystemStats {
-    cpu_usage: 0.0,
-    memory_usage: 0.0,
-});
+static STATS: Mutex<(f32, f32)> = Mutex::new((0.0, 0.0));
 
 /// Main tray application
 pub struct TrayApp;
@@ -36,7 +34,7 @@ impl TrayApp {
     /// Run the application
     pub fn run(settings: Settings) -> Result<()> {
         // Store settings globally
-        *SETTINGS.lock().unwrap() = Some(settings);
+        *SETTINGS.lock().unwrap() = Some(settings.clone());
 
         // Register window class
         let class_name = w!("DashCatWndClass");
@@ -79,15 +77,9 @@ impl TrayApp {
             )
         };
 
-        // Initialize monitors
-        let mut cpu_monitor = CpuMonitor::new();
-        let memory_monitor = MemoryMonitor::new();
-
-        // Create tray icon
-        let mut icon = TrayIcon::new();
-        unsafe {
-            icon.create(hwnd, 1)?;
-        }
+        // Initialize caffeine with saved mode
+        let mut caffeine = Caffeine::new();
+        caffeine.set_mode(settings.caffeine_mode);
 
         // Start animation timer (200ms interval)
         unsafe {
@@ -110,11 +102,6 @@ impl TrayApp {
             }
         }
 
-        // Remove tray icon
-        unsafe {
-            let _ = icon.remove(hwnd, 1);
-        }
-
         Ok(())
     }
 
@@ -125,26 +112,40 @@ impl TrayApp {
         wparam: WPARAM,
         lparam: LPARAM,
     ) -> LRESULT {
-        // Static monitors (persist across calls)
+        // Static state (persist across calls)
         static mut CPU_MONITOR: Option<CpuMonitor> = None;
         static mut MEMORY_MONITOR: Option<MemoryMonitor> = None;
+        static mut CAFFEINE: Option<Caffeine> = None;
         static mut ICON: Option<TrayIcon> = None;
 
         match msg {
             WM_CREATE => {
-                // Initialize monitors
+                // Initialize components
                 CPU_MONITOR = Some(CpuMonitor::new());
                 MEMORY_MONITOR = Some(MemoryMonitor::new());
+                CAFFEINE = Some(Caffeine::new());
                 ICON = Some(TrayIcon::new());
-                
+
                 // Create tray icon
                 if let Some(ref mut icon) = ICON {
                     let _ = icon.create(hwnd, 1);
                 }
+
+                // Apply saved caffeine mode
+                if let Some(settings) = SETTINGS.lock().unwrap().as_ref() {
+                    if let Some(ref mut caffeine) = CAFFEINE {
+                        caffeine.set_mode(settings.caffeine_mode);
+                    }
+                }
+
                 LRESULT::default()
             }
             WM_DESTROY => {
                 RUNNING.store(false, Ordering::SeqCst);
+                // Remove tray icon
+                if let Some(ref mut icon) = ICON {
+                    let _ = icon.remove(hwnd, 1);
+                }
                 PostQuitMessage(0);
                 LRESULT::default()
             }
@@ -169,13 +170,12 @@ impl TrayApp {
                     if let Some(ref mem) = MEMORY_MONITOR {
                         let cpu_usage = cpu.usage();
                         let mem_usage = mem.usage();
-                        
+
                         // Store stats
                         if let Ok(mut stats) = STATS.lock() {
-                            stats.cpu_usage = cpu_usage;
-                            stats.memory_usage = mem_usage;
+                            *stats = (cpu_usage, mem_usage);
                         }
-                        
+
                         // Update icon animation
                         if let Some(ref mut icon) = ICON {
                             icon.update(hwnd, 1, cpu_usage, mem_usage);
@@ -187,7 +187,7 @@ impl TrayApp {
             WM_COMMAND => {
                 // Handle menu commands
                 let cmd = wparam.0 as usize;
-                Self::handle_command(cmd);
+                Self::handle_command(cmd, &mut CAFFEINE);
                 LRESULT::default()
             }
             _ => DefWindowProcW(hwnd, msg, wparam, lparam),
@@ -195,7 +195,7 @@ impl TrayApp {
     }
 
     /// Handle menu command
-    fn handle_command(cmd: usize) {
+    fn handle_command(cmd: usize, caffeine: &mut Option<Caffeine>) {
         match cmd {
             100..=102 => {
                 // Monitor mode
@@ -235,6 +235,10 @@ impl TrayApp {
                 if let Some(settings) = SETTINGS.lock().unwrap().as_mut() {
                     settings.caffeine_mode = mode;
                     let _ = settings.save();
+                }
+                // Apply caffeine mode
+                if let Some(caffeine) = caffeine {
+                    caffeine.set_mode(mode);
                 }
             }
             999 => {

@@ -2,6 +2,7 @@
 
 mod config;
 mod monitor;
+mod power;
 mod tray;
 
 use config::Settings;
