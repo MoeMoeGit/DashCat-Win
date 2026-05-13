@@ -9,6 +9,7 @@ license = "MIT"
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+png = "0.17"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.54", features = [
@@ -21,15 +22,16 @@ windows = { version = "0.54", features = [
     "Win32_System_DataExchange",
     "Win32_System_Performance",
     "Win32_System_Memory",
+    "Win32_System_Com",
+    "Win32_System_LibraryLoader",
 ] }
 
 [target.x86_64-pc-windows-gnu]
 linker = "x86_64-w64-mingw32-gcc"
-ar = "x86_64-w64-mingw32-gcc-ar"
 
 [profile.release]
-opt-level = "z"     # Optimize for size
-lto = true          # Link-time optimization
-codegen-units = 1   # Better optimization
-panic = "abort"     # Smaller binary
-strip = true        # Strip symbols
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
