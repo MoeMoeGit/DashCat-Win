@@ -5,46 +5,37 @@ use std::path::PathBuf;
 
 /// Monitor display mode
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum MonitorMode {
+    #[default]
     Combined,
     Cpu,
     Memory,
 }
 
-impl Default for MonitorMode {
-    fn default() -> Self {
-        Self::Combined
-    }
-}
 
 /// Display mode for tray icon
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum DisplayMode {
+    #[default]
     Both,
     AnimOnly,
     PctOnly,
     DualValues,
 }
 
-impl Default for DisplayMode {
-    fn default() -> Self {
-        Self::Both
-    }
-}
 
 /// Sleep prevention mode
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum CaffeineMode {
+    #[default]
     Off,
     NoSleep,
     NoDisplaySleep,
 }
 
-impl Default for CaffeineMode {
-    fn default() -> Self {
-        Self::Off
-    }
-}
 
 /// Application settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
