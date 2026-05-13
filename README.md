@@ -1,54 +1,37 @@
-# DashCat-Win
+# DashCat for Windows
 
-Windows 版系统托盘猫咪工具 — 剪贴板历史、系统监控、防休眠、鼠标滚轮反转。
-
-**原版仓库**: [DashCat (macOS)](https://github.com/vivalucas/DashCat)
-
----
+Windows 11 系统托盘监控工具，复刻自 macOS 版 DashCat。
 
 ## 功能
 
-- **系统监控** — CPU/内存实时监控，猫咪动画速度反映负载
-- **剪贴板管理** — 历史记录、搜索、Pin 固定、图片支持
-- **防止休眠** — 三档控制：关闭/阻止系统休眠/阻止屏幕关闭
-- **鼠标滚轮反转** — 仅对鼠标生效，触控板保持自然滚动
-- **多语言支持** — 11 种语言界面
-- **开机启动** — 注册表自启动
+- **系统监控**：CPU/内存使用率实时显示
+- **睡眠阻止**：防止系统休眠或显示器关闭
+- **开机自启**：支持注册表自启动
+- **猫咪动画**：托盘图标显示动态猫咪
 
-## 系统要求
+## 下载
 
-- Windows 11 x86_64
-- Windows 10 21H2+ (可能兼容，非官方支持)
+前往 [Releases](https://github.com/MoeMoeGit/DashCat-Win/releases) 页面下载最新版本。
 
-## 安装
+## 构建
 
-从 [Releases](../../releases) 下载最新版本。
-
-## 编译
-
-### Linux 交叉编译
+需要 Rust 和 mingw-w64 交叉编译环境：
 
 ```bash
-# 安装 mingw-w64
-sudo apt install mingw-w64
-
-# 添加 Rust target
+# 安装目标
 rustup target add x86_64-pc-windows-gnu
 
-# 编译
+# 构建
 cargo build --release --target x86_64-pc-windows-gnu
 ```
 
-### Windows 原生编译
+## 技术栈
 
-```bash
-cargo build --release
-```
+- Rust + windows-rs (纯 Win32 API)
+- PDH 计数器（CPU监控）
+- GlobalMemoryStatusEx（内存监控）
+- SetThreadExecutionState（睡眠阻止）
 
-## 开发文档
+## 许可证
 
-开发者请查看 `project-log/` 目录。
-
----
-
-MIT License
+MIT

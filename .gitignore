@@ -1,26 +1,6 @@
-# Build artifacts
-/target/
-/Cargo.lock
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Dev logs (not for public repo)
-DEVLOG.md
-CLAUDE.md
-PROMPT.md
-
-# Delivery folder
-delivery/
-
-# Local config
-.env
-.env.local
+/target
+/.cargo
+/.git
+*.exe
+*.dll
+*.pdb
