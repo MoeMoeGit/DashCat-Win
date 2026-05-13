@@ -4,6 +4,7 @@ mod icon;
 mod menu;
 
 use crate::config::{CaffeineMode, DisplayMode, MonitorMode, Settings};
+use crate::monitor::{CpuMonitor, MemoryMonitor, SystemStats};
 use icon::TrayIcon;
 use menu::TrayMenu;
 
@@ -23,6 +24,10 @@ const TIMER_ID: usize = 1;
 /// Global application state
 static RUNNING: AtomicBool = AtomicBool::new(false);
 static SETTINGS: Mutex<Option<Settings>> = Mutex::new(None);
+static STATS: Mutex<SystemStats> = Mutex::new(SystemStats {
+    cpu_usage: 0.0,
+    memory_usage: 0.0,
+});
 
 /// Main tray application
 pub struct TrayApp;
@@ -74,8 +79,12 @@ impl TrayApp {
             )
         };
 
+        // Initialize monitors
+        let mut cpu_monitor = CpuMonitor::new();
+        let memory_monitor = MemoryMonitor::new();
+
         // Create tray icon
-        let icon = TrayIcon::new();
+        let mut icon = TrayIcon::new();
         unsafe {
             icon.create(hwnd, 1)?;
         }
@@ -116,7 +125,24 @@ impl TrayApp {
         wparam: WPARAM,
         lparam: LPARAM,
     ) -> LRESULT {
+        // Static monitors (persist across calls)
+        static mut CPU_MONITOR: Option<CpuMonitor> = None;
+        static mut MEMORY_MONITOR: Option<MemoryMonitor> = None;
+        static mut ICON: Option<TrayIcon> = None;
+
         match msg {
+            WM_CREATE => {
+                // Initialize monitors
+                CPU_MONITOR = Some(CpuMonitor::new());
+                MEMORY_MONITOR = Some(MemoryMonitor::new());
+                ICON = Some(TrayIcon::new());
+                
+                // Create tray icon
+                if let Some(ref mut icon) = ICON {
+                    let _ = icon.create(hwnd, 1);
+                }
+                LRESULT::default()
+            }
             WM_DESTROY => {
                 RUNNING.store(false, Ordering::SeqCst);
                 PostQuitMessage(0);
@@ -138,8 +164,24 @@ impl TrayApp {
                 LRESULT::default()
             }
             WM_TIMER => {
-                // Update animation
-                // TODO: Get CPU/memory and update icon
+                // Update system stats and animation
+                if let Some(ref mut cpu) = CPU_MONITOR {
+                    if let Some(ref mem) = MEMORY_MONITOR {
+                        let cpu_usage = cpu.usage();
+                        let mem_usage = mem.usage();
+                        
+                        // Store stats
+                        if let Ok(mut stats) = STATS.lock() {
+                            stats.cpu_usage = cpu_usage;
+                            stats.memory_usage = mem_usage;
+                        }
+                        
+                        // Update icon animation
+                        if let Some(ref mut icon) = ICON {
+                            icon.update(hwnd, 1, cpu_usage, mem_usage);
+                        }
+                    }
+                }
                 LRESULT::default()
             }
             WM_COMMAND => {

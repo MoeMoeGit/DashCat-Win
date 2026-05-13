@@ -1,6 +1,7 @@
 //! DashCat for Windows - System tray application
 
 mod config;
+mod monitor;
 mod tray;
 
 use config::Settings;
