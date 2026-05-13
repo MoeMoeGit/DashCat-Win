@@ -1,5 +1,6 @@
-//! Configuration module
+//! Configuration management
 
-mod settings;
+pub mod settings;
+pub mod autostart;
 
-pub use settings::{CaffeineMode, DisplayMode, MonitorMode, Settings};
+pub use settings::{Settings, MonitorMode, DisplayMode, CaffeineMode};
