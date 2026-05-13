@@ -59,9 +59,6 @@ impl TrayApp {
             )
         };
 
-        let mut caffeine = Caffeine::new();
-        caffeine.set_mode(settings.caffeine_mode);
-
         RUNNING.store(true, Ordering::SeqCst);
 
         let mut msg = MSG::default();
@@ -107,7 +104,16 @@ impl TrayApp {
             }
             WM_TRAYICON => {
                 match lparam.0 as u32 {
-                    WM_RBUTTONUP => { let mut menu = TrayMenu::new(); menu.show(hwnd); }
+                    WM_RBUTTONUP => {
+                        let settings = SETTINGS.lock().unwrap();
+                        let (mm, dm, cm) = settings.as_ref()
+                            .map(|s| (s.monitor_mode, s.display_mode, s.caffeine_mode))
+                            .unwrap_or((MonitorMode::Combined, DisplayMode::Both, CaffeineMode::Off));
+                        drop(settings);
+                        
+                        let mut menu = TrayMenu::new();
+                        menu.show(hwnd, mm, dm, cm);
+                    }
                     WM_LBUTTONUP => {}
                     _ => {}
                 }
@@ -123,14 +129,14 @@ impl TrayApp {
                 LRESULT::default()
             }
             WM_COMMAND => {
-                Self::handle_command(wparam.0 as usize, &mut CAFFEINE);
+                Self::handle_command(wparam.0 as usize, &raw mut CAFFEINE);
                 LRESULT::default()
             }
             _ => DefWindowProcW(hwnd, msg, wparam, lparam),
         }
     }
 
-    fn handle_command(cmd: usize, caffeine: &mut Option<Caffeine>) {
+    fn handle_command(cmd: usize, caffeine: *mut Option<Caffeine>) {
         match cmd {
             100..=102 => {
                 let mode = match cmd { 100 => MonitorMode::Combined, 101 => MonitorMode::Cpu, 102 => MonitorMode::Memory, _ => MonitorMode::Combined };
@@ -143,7 +149,9 @@ impl TrayApp {
             300..=302 => {
                 let mode = match cmd { 300 => CaffeineMode::Off, 301 => CaffeineMode::NoSleep, 302 => CaffeineMode::NoDisplaySleep, _ => CaffeineMode::Off };
                 if let Some(s) = SETTINGS.lock().unwrap().as_mut() { s.caffeine_mode = mode; let _ = s.save(); }
-                if let Some(c) = caffeine { c.set_mode(mode); }
+                unsafe {
+                    if let Some(ref mut c) = *caffeine { c.set_mode(mode); }
+                }
             }
             999 => { RUNNING.store(false, Ordering::SeqCst); unsafe { PostQuitMessage(0); } }
             _ => {}

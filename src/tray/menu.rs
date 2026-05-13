@@ -1,5 +1,6 @@
 //! Context menu for the tray icon
 
+use crate::config::{CaffeineMode, MonitorMode, DisplayMode};
 use windows::core::*;
 use windows::Win32::Foundation::{HWND, POINT};
 use windows::Win32::UI::WindowsAndMessaging::*;
@@ -9,21 +10,32 @@ pub struct TrayMenu { hmenu: HMENU }
 impl TrayMenu {
     pub fn new() -> Self { Self { hmenu: HMENU::default() } }
 
-    pub unsafe fn show(&mut self, hwnd: HWND) {
+    pub unsafe fn show(&mut self, hwnd: HWND, monitor_mode: MonitorMode, display_mode: DisplayMode, caffeine_mode: CaffeineMode) {
         self.hmenu = CreatePopupMenu().unwrap_or_default();
 
-        let _ = AppendMenuW(self.hmenu, MF_STRING | MF_GRAYED, 0, w!("Monitor"));
-        let _ = AppendMenuW(self.hmenu, MF_STRING, 100, w!("  Combined"));
-        let _ = AppendMenuW(self.hmenu, MF_STRING, 101, w!("  CPU"));
-        let _ = AppendMenuW(self.hmenu, MF_STRING, 102, w!("  Memory"));
+        // Monitor section
+        let _ = AppendMenuW(self.hmenu, MF_STRING | MF_GRAYED, 0, w!("Monitor Mode"));
+        let _ = AppendMenuW(self.hmenu, MF_STRING | check(monitor_mode == MonitorMode::Combined), 100, w!("  Combined"));
+        let _ = AppendMenuW(self.hmenu, MF_STRING | check(monitor_mode == MonitorMode::Cpu), 101, w!("  CPU Only"));
+        let _ = AppendMenuW(self.hmenu, MF_STRING | check(monitor_mode == MonitorMode::Memory), 102, w!("  Memory Only"));
         let _ = AppendMenuW(self.hmenu, MF_SEPARATOR, 0, w!(""));
 
+        // Display section
+        let _ = AppendMenuW(self.hmenu, MF_STRING | MF_GRAYED, 0, w!("Display Mode"));
+        let _ = AppendMenuW(self.hmenu, MF_STRING | check(display_mode == DisplayMode::Both), 200, w!("  Animation + Percent"));
+        let _ = AppendMenuW(self.hmenu, MF_STRING | check(display_mode == DisplayMode::AnimOnly), 201, w!("  Animation Only"));
+        let _ = AppendMenuW(self.hmenu, MF_STRING | check(display_mode == DisplayMode::PctOnly), 202, w!("  Percent Only"));
+        let _ = AppendMenuW(self.hmenu, MF_STRING | check(display_mode == DisplayMode::DualValues), 203, w!("  Dual Values"));
+        let _ = AppendMenuW(self.hmenu, MF_SEPARATOR, 0, w!(""));
+
+        // Caffeine section
         let _ = AppendMenuW(self.hmenu, MF_STRING | MF_GRAYED, 0, w!("Sleep Prevention"));
-        let _ = AppendMenuW(self.hmenu, MF_STRING, 300, w!("  Off"));
-        let _ = AppendMenuW(self.hmenu, MF_STRING, 301, w!("  Prevent System Sleep"));
-        let _ = AppendMenuW(self.hmenu, MF_STRING, 302, w!("  Prevent Display Sleep"));
+        let _ = AppendMenuW(self.hmenu, MF_STRING | check(caffeine_mode == CaffeineMode::Off), 300, w!("  Off"));
+        let _ = AppendMenuW(self.hmenu, MF_STRING | check(caffeine_mode == CaffeineMode::NoSleep), 301, w!("  Prevent System Sleep"));
+        let _ = AppendMenuW(self.hmenu, MF_STRING | check(caffeine_mode == CaffeineMode::NoDisplaySleep), 302, w!("  Prevent Display Sleep"));
         let _ = AppendMenuW(self.hmenu, MF_SEPARATOR, 0, w!(""));
 
+        // Quit
         let _ = AppendMenuW(self.hmenu, MF_STRING, 999, w!("Quit DashCat"));
 
         let mut point = POINT { x: 0, y: 0 };
@@ -32,6 +44,11 @@ impl TrayMenu {
         let _ = TrackPopupMenu(self.hmenu, TPM_RIGHTALIGN | TPM_BOTTOMALIGN | TPM_RIGHTBUTTON, point.x, point.y, 0, hwnd, None);
         let _ = DestroyMenu(self.hmenu);
     }
+}
+
+#[inline]
+fn check(condition: bool) -> MENU_ITEM_FLAGS {
+    if condition { MF_CHECKED } else { MENU_ITEM_FLAGS(0) }
 }
 
 impl Default for TrayMenu {
