@@ -1,0 +1,57 @@
+[package]
+name = "dashcat-win"
+version = "0.1.0"
+edition = "2021"
+description = "Windows system tray cat - clipboard, monitor, caffeine, scroll reverse"
+authors = ["Lucas"]
+license = "MIT"
+
+[dependencies]
+# Windows API bindings (pinned to 0.54 for stability)
+windows = { version = "0.54", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Shell",
+    "Win32_Graphics_Gdi",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Power",
+    "Win32_System_Threading",
+    "Win32_System_DataExchange",  # Clipboard
+    "Win32_Devices_HumanInterfaceDevice",  # Mouse hooks
+    "Win32_System_Performance",  # PDH
+    "Win32_Security",
+] }
+
+# SQLite for clipboard history
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+# PNG decoding
+png = "0.17"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# UUID for image filenames
+uuid = { version = "1.0", features = ["v4"] }
+
+# Error handling
+thiserror = "1.0"
+
+[build-dependencies]
+# For resource embedding if needed
+embed-resource = "2.4"
+
+[profile.release]
+opt-level = "z"      # Optimize for size
+lto = true           # Link-time optimization
+codegen-units = 1    # Better optimization
+panic = "abort"     # Smaller binary, no unwinding
+strip = true        # Strip symbols
+
+[profile.dev]
+opt-level = 0
+debug = true
