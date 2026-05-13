@@ -1,7 +1,7 @@
 //! Memory usage monitoring via GlobalMemoryStatusEx
 
-/// Memory status information
 #[repr(C)]
+#[allow(non_snake_case)]
 struct MemoryStatusEx {
     dwLength: u32,
     dwMemoryLoad: u32,
@@ -14,19 +14,11 @@ struct MemoryStatusEx {
     ullAvailExtendedVirtual: u64,
 }
 
-#[link(name = "kernel32")]
-extern "system" {
-    fn GlobalMemoryStatusEx(lpBuffer: *mut MemoryStatusEx) -> i32;
-}
-
 /// Memory usage monitor
 pub struct MemoryMonitor;
 
 impl MemoryMonitor {
-    /// Create a new memory monitor
-    pub fn new() -> Self {
-        Self
-    }
+    pub fn new() -> Self { Self }
 
     /// Get current memory usage percentage
     pub fn usage(&self) -> f32 {
@@ -43,17 +35,22 @@ impl MemoryMonitor {
                 ullAvailExtendedVirtual: 0,
             };
 
-            if GlobalMemoryStatusEx(&mut status) != 0 {
-                return status.dwMemoryLoad as f32;
+            // Call GlobalMemoryStatusEx via FFI
+            let result = GlobalMemoryStatusEx(&mut status);
+            if result != 0 {
+                status.dwMemoryLoad as f32
+            } else {
+                0.0
             }
         }
-
-        0.0
     }
 }
 
 impl Default for MemoryMonitor {
-    fn default() -> Self {
-        Self::new()
-    }
+    fn default() -> Self { Self::new() }
+}
+
+#[cfg(windows)]
+extern "system" {
+    fn GlobalMemoryStatusEx(lpBuffer: *mut MemoryStatusEx) -> i32;
 }

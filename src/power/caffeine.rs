@@ -4,63 +4,48 @@ use crate::config::CaffeineMode;
 
 use windows::Win32::System::Power::{SetThreadExecutionState, EXECUTION_STATE};
 
+// Execution state flags
+const ES_CONTINUOUS: EXECUTION_STATE = EXECUTION_STATE(0x80000000);
+const ES_SYSTEM_REQUIRED: EXECUTION_STATE = EXECUTION_STATE(0x00000001);
+const ES_DISPLAY_REQUIRED: EXECUTION_STATE = EXECUTION_STATE(0x00000002);
+
 /// Sleep prevention handler
 pub struct Caffeine {
     current_mode: CaffeineMode,
 }
 
-// Execution state constants
-const ES_CONTINUOUS: EXECUTION_STATE = EXECUTION_STATE(0x80000000);
-const ES_SYSTEM_REQUIRED: EXECUTION_STATE = EXECUTION_STATE(0x00000001);
-const ES_DISPLAY_REQUIRED: EXECUTION_STATE = EXECUTION_STATE(0x00000002);
-
 impl Caffeine {
-    /// Create a new caffeine handler
     pub fn new() -> Self {
-        Self {
-            current_mode: CaffeineMode::Off,
-        }
+        Self { current_mode: CaffeineMode::Off }
     }
 
-    /// Set the caffeine mode
+    /// Set caffeine mode
     pub fn set_mode(&mut self, mode: CaffeineMode) {
+        if self.current_mode == mode {
+            return;
+        }
+
         self.current_mode = mode;
 
         unsafe {
             match mode {
                 CaffeineMode::Off => {
-                    // Reset to default
+                    // Clear all flags - allow normal sleep
                     SetThreadExecutionState(ES_CONTINUOUS);
                 }
                 CaffeineMode::NoSleep => {
-                    // Prevent system from sleeping, but allow display to turn off
+                    // Prevent system from sleeping (display can turn off)
                     SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED);
                 }
                 CaffeineMode::NoDisplaySleep => {
-                    // Prevent display from turning off and system from sleeping
+                    // Prevent both system and display from sleeping
                     SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
                 }
             }
         }
     }
-
-    /// Get current mode
-    pub fn current_mode(&self) -> CaffeineMode {
-        self.current_mode
-    }
 }
 
 impl Default for Caffeine {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Drop for Caffeine {
-    fn drop(&mut self) {
-        // Reset when dropping
-        unsafe {
-            SetThreadExecutionState(ES_CONTINUOUS);
-        }
-    }
+    fn default() -> Self { Self::new() }
 }

@@ -1,13 +1,21 @@
-//! Tray icon management
+//! Tray icon with PNG animation
+use std::io::Cursor;
 
 use windows::core::*;
-use windows::Win32::Foundation::{BOOL, HWND};
-use windows::Win32::Graphics::Gdi::*;
-use windows::Win32::UI::Shell::*;
-use windows::Win32::UI::WindowsAndMessaging::*;
+use windows::Win32::Foundation::{HWND, BOOL};
+use windows::Win32::Graphics::Gdi::{CreateBitmap, DeleteObject};
+use windows::Win32::UI::Shell::{Shell_NotifyIconW, NOTIFYICONDATAW, NOTIFY_ICON_DATA_FLAGS, NOTIFY_ICON_MESSAGE};
+use windows::Win32::UI::WindowsAndMessaging::{CreateIconIndirect, DestroyIcon, HICON, ICONINFO, WM_USER};
 
-/// Cat animation frames (embedded)
-const CAT_FRAMES: [&[u8]; 5] = [
+const WM_TRAYICON: u32 = WM_USER + 1;
+const NIM_ADD: u32 = 0x00000000;
+const NIM_DELETE: u32 = 0x00000002;
+const NIM_MODIFY: u32 = 0x00000001;
+const NIF_MESSAGE: u32 = 0x00000001;
+const NIF_ICON: u32 = 0x00000002;
+const NIF_TIP: u32 = 0x00000004;
+
+static CAT_FRAMES: [&[u8]; 5] = [
     include_bytes!("../assets/cat_0.png"),
     include_bytes!("../assets/cat_1.png"),
     include_bytes!("../assets/cat_2.png"),
@@ -15,148 +23,92 @@ const CAT_FRAMES: [&[u8]; 5] = [
     include_bytes!("../assets/cat_4.png"),
 ];
 
-/// Tray icon handler
-pub struct TrayIcon {
-    current_frame: usize,
-}
+pub struct TrayIcon { current_frame: usize, hicon: Option<HICON> }
 
 impl TrayIcon {
-    /// Create a new tray icon handler
-    pub fn new() -> Self {
-        Self { current_frame: 0 }
-    }
+    pub fn new() -> Self { Self { current_frame: 0, hicon: None } }
 
-    /// Create and show the tray icon
-    pub unsafe fn create(&self, hwnd: HWND, id: u32) -> Result<()> {
-        let hicon = self.load_icon(0)?;
+    pub fn create(&mut self, hwnd: HWND, id: usize) -> Result<()> {
+        let icon = self.create_icon_from_frame(0)?;
 
-        let nid = NOTIFYICONDATAW {
+        let mut nid = NOTIFYICONDATAW {
             cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
-            hWnd: hwnd,
-            uID: id,
-            uFlags: NIF_ICON | NIF_MESSAGE | NIF_TIP,
-            uCallbackMessage: WM_USER + 1,
-            hIcon: hicon,
-            szTip: {
-                let mut arr = [0u16; 128];
-                let tip = "DashCat\0";
-                for (i, c) in tip.encode_utf16().take(127).enumerate() {
-                    arr[i] = c;
-                }
-                arr
-            },
-            ..std::mem::zeroed()
+            hWnd: hwnd, uID: id as u32,
+            uFlags: NOTIFY_ICON_DATA_FLAGS(NIF_ICON | NIF_MESSAGE | NIF_TIP),
+            uCallbackMessage: WM_TRAYICON, hIcon: icon,
+            szTip: [0; 128], ..Default::default()
         };
 
-        Shell_NotifyIconW(NIM_ADD, &nid);
+        let tip_wide: Vec<u16> = "DashCat".encode_utf16().chain(std::iter::once(0)).collect();
+        for (i, &c) in tip_wide.iter().take(127).enumerate() { nid.szTip[i] = c; }
 
+        unsafe { Shell_NotifyIconW(NOTIFY_ICON_MESSAGE(NIM_ADD), &nid); }
+        self.hicon = Some(icon);
         Ok(())
     }
 
-    /// Load a cat frame as icon
-    unsafe fn load_icon(&self, frame: usize) -> Result<HICON> {
-        // Decode PNG
-        let png_data = CAT_FRAMES[frame.min(4)];
-        let decoder = png::Decoder::new(std::io::Cursor::new(png_data));
-        let mut reader = decoder.read_info().map_err(|e| Error::from(HRESULT(-1)))?;
-        let mut buf = vec![0; reader.output_buffer_size()];
-        reader.next_frame(&mut buf).map_err(|e| Error::from(HRESULT(-1)))?;
-
-        let info = reader.info();
-        let width = info.width;
-        let height = info.height;
-
-        // Create DIB section
-        let hdc = GetDC(HWND::default());
-
-        let bmi = BITMAPINFO {
-            bmiHeader: BITMAPINFOHEADER {
-                biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
-                biWidth: width as i32,
-                biHeight: -(height as i32),
-                biPlanes: 1,
-                biBitCount: 32,
-                biCompression: BI_RGB.0,
-                ..std::mem::zeroed()
-            },
-            bmiColors: [RGBQUAD::default()],
+    pub fn remove(&mut self, hwnd: HWND, id: usize) -> Result<()> {
+        let nid = NOTIFYICONDATAW {
+            cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
+            hWnd: hwnd, uID: id as u32, ..Default::default()
         };
-
-        let mut bits: *mut std::ffi::c_void = std::ptr::null_mut();
-        let hbitmap = CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS, &mut bits, None, 0)?;
-
-        // Copy RGBA to BGRA
-        if !bits.is_null() {
-            let bits_ptr = bits as *mut u8;
-            for (i, pixel) in buf.chunks(4).enumerate() {
-                let offset = i * 4;
-                *bits_ptr.add(offset) = pixel[2];     // B
-                *bits_ptr.add(offset + 1) = pixel[1]; // G
-                *bits_ptr.add(offset + 2) = pixel[0]; // R
-                *bits_ptr.add(offset + 3) = pixel[3]; // A
-            }
-        }
-
-        ReleaseDC(HWND::default(), hdc);
-
-        // Create mask
-        let hmask = CreateBitmap(width as i32, height as i32, 1, 1, None);
-
-        // Create icon
-        let ii = ICONINFO {
-            fIcon: BOOL(1),
-            xHotspot: 0,
-            yHotspot: 0,
-            hbmMask: hmask,
-            hbmColor: hbitmap,
-        };
-
-        let hicon = CreateIconIndirect(&ii)?;
-
-        // Cleanup
-        let _ = DeleteObject(hbitmap);
-        let _ = DeleteObject(hmask);
-
-        Ok(hicon)
+        unsafe { Shell_NotifyIconW(NOTIFY_ICON_MESSAGE(NIM_DELETE), &nid); }
+        if let Some(icon) = self.hicon.take() { unsafe { let _ = DestroyIcon(icon); } }
+        Ok(())
     }
 
-    /// Update the icon with a new frame
-    pub unsafe fn update(&mut self, hwnd: HWND, id: u32, _cpu: f32, _memory: f32) {
-        // Advance frame
+    pub fn update(&mut self, hwnd: HWND, id: usize, _cpu: f32, _mem: f32) {
         self.current_frame = (self.current_frame + 1) % 5;
+        if let Some(old) = self.hicon.take() { unsafe { let _ = DestroyIcon(old); } }
 
-        // Load new icon
-        if let Ok(hicon) = self.load_icon(self.current_frame) {
+        if let Ok(icon) = self.create_icon_from_frame(self.current_frame) {
+            self.hicon = Some(icon);
             let nid = NOTIFYICONDATAW {
                 cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
-                hWnd: hwnd,
-                uID: id,
-                uFlags: NIF_ICON,
-                hIcon: hicon,
-                ..std::mem::zeroed()
+                hWnd: hwnd, uID: id as u32,
+                uFlags: NOTIFY_ICON_DATA_FLAGS(NIF_ICON), hIcon: icon,
+                ..Default::default()
             };
-
-            Shell_NotifyIconW(NIM_MODIFY, &nid);
+            unsafe { Shell_NotifyIconW(NOTIFY_ICON_MESSAGE(NIM_MODIFY), &nid); }
         }
     }
 
-    /// Remove the tray icon
-    pub unsafe fn remove(&self, hwnd: HWND, id: u32) -> Result<()> {
-        let nid = NOTIFYICONDATAW {
-            cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
-            hWnd: hwnd,
-            uID: id,
-            ..std::mem::zeroed()
-        };
+    fn create_icon_from_frame(&self, frame: usize) -> Result<HICON> {
+        let data = CAT_FRAMES[frame.min(4)];
+        let decoder = png::Decoder::new(Cursor::new(data));
+        let mut reader = decoder.read_info().map_err(|_| Error::from(HRESULT(-1)))?;
 
-        Shell_NotifyIconW(NIM_DELETE, &nid);
+        let info = reader.info();
+        let (w, h) = (info.width as i32, info.height as i32);
 
-        Ok(())
+        let mut buf = vec![0u8; reader.output_buffer_size()];
+        reader.next_frame(&mut buf).map_err(|_| Error::from(HRESULT(-1)))?;
+
+        // RGBA to BGRA
+        for i in 0..(w * h) as usize {
+            let (r, g, b) = (buf[i*4], buf[i*4+1], buf[i*4+2]);
+            buf[i*4] = b; buf[i*4+1] = g; buf[i*4+2] = r;
+        }
+
+        unsafe { create_icon_from_bitmap(&buf, w, h) }
     }
 }
 
-impl Default for TrayIcon {
-    fn default() -> Self {
-        Self::new()
-    }
+unsafe fn create_icon_from_bitmap(data: &[u8], w: i32, h: i32) -> Result<HICON> {
+    let hbm_color = CreateBitmap(w, h, 1, 32, Some(data.as_ptr() as *const _));
+    if hbm_color.is_invalid() { return Err(Error::from(HRESULT(-1))); }
+
+    let mask = vec![0u8; (w * h) as usize];
+    let hbm_mask = CreateBitmap(w, h, 1, 1, Some(mask.as_ptr() as *const _));
+    if hbm_mask.is_invalid() { DeleteObject(hbm_color); return Err(Error::from(HRESULT(-2))); }
+
+    let info = ICONINFO { fIcon: BOOL(1), xHotspot: 0, yHotspot: 0, hbmMask: hbm_mask, hbmColor: hbm_color };
+    let hicon = CreateIconIndirect(&info)?;
+
+    DeleteObject(hbm_color);
+    DeleteObject(hbm_mask);
+
+    Ok(hicon)
 }
+
+impl Default for TrayIcon { fn default() -> Self { Self::new() } }
