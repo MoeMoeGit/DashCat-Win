@@ -1,12 +1,12 @@
 #include <winres.h>
 
 // Application icon
-// IDI_APPICON ICON "assets/app.ico"
+IDI_APPICON ICON "assets/icons/app_icon.ico"
 
 // Version information
 1 VERSIONINFO
-FILEVERSION     0,2,0,0
-PRODUCTVERSION  0,2,0,0
+FILEVERSION     0,3,0,0
+PRODUCTVERSION  0,3,0,0
 FILEFLAGSMASK   0x3fL
 FILEFLAGS       0x0L
 FILEOS          VOS_NT_WINDOWS32
@@ -19,12 +19,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "MoeMoeGit"
             VALUE "FileDescription", "DashCat for Windows - System Tray Monitor"
-            VALUE "FileVersion", "0.2.0.0"
+            VALUE "FileVersion", "0.3.0.0"
             VALUE "InternalName", "DashCat"
             VALUE "LegalCopyright", "MIT License"
             VALUE "OriginalFilename", "dashcat-win.exe"
             VALUE "ProductName", "DashCat"
-            VALUE "ProductVersion", "0.2.0.0"
+            VALUE "ProductVersion", "0.3.0.0"
         END
     END
     BLOCK "VarFileInfo"
