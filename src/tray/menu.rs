@@ -1,6 +1,6 @@
 //! Context menu for the tray icon
 
-use crate::config::{CaffeineMode, MonitorMode, DisplayMode};
+use crate::config::{CaffeineMode, MonitorMode, DisplayMode, is_auto_start_enabled};
 use windows::core::*;
 use windows::Win32::Foundation::{HWND, POINT};
 use windows::Win32::UI::WindowsAndMessaging::*;
@@ -33,6 +33,11 @@ impl TrayMenu {
         let _ = AppendMenuW(self.hmenu, MF_STRING | check(caffeine_mode == CaffeineMode::Off), 300, w!("  Off"));
         let _ = AppendMenuW(self.hmenu, MF_STRING | check(caffeine_mode == CaffeineMode::NoSleep), 301, w!("  Prevent System Sleep"));
         let _ = AppendMenuW(self.hmenu, MF_STRING | check(caffeine_mode == CaffeineMode::NoDisplaySleep), 302, w!("  Prevent Display Sleep"));
+        let _ = AppendMenuW(self.hmenu, MF_SEPARATOR, 0, w!(""));
+
+        // Auto-start section
+        let auto_enabled = is_auto_start_enabled();
+        let _ = AppendMenuW(self.hmenu, MF_STRING | check(auto_enabled), 400, w!("Launch at Login"));
         let _ = AppendMenuW(self.hmenu, MF_SEPARATOR, 0, w!(""));
 
         // Quit

@@ -3,7 +3,7 @@
 mod icon;
 mod menu;
 
-use crate::config::{CaffeineMode, DisplayMode, MonitorMode, Settings};
+use crate::config::{CaffeineMode, DisplayMode, MonitorMode, Settings, is_auto_start_enabled, enable_auto_start, disable_auto_start};
 use crate::monitor::{CpuMonitor, MemoryMonitor};
 use crate::power::Caffeine;
 use icon::TrayIcon;
@@ -151,6 +151,14 @@ impl TrayApp {
                 if let Some(s) = SETTINGS.lock().unwrap().as_mut() { s.caffeine_mode = mode; let _ = s.save(); }
                 unsafe {
                     if let Some(ref mut c) = *caffeine { c.set_mode(mode); }
+                }
+            }
+            400 => {
+                // Toggle auto-start
+                if is_auto_start_enabled() {
+                    disable_auto_start();
+                } else {
+                    enable_auto_start();
                 }
             }
             999 => { RUNNING.store(false, Ordering::SeqCst); unsafe { PostQuitMessage(0); } }
