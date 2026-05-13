@@ -1,5 +1,5 @@
-//! Configuration management module
+//! Configuration module
 
 mod settings;
 
-pub use settings::Settings;
+pub use settings::{CaffeineMode, DisplayMode, MonitorMode, Settings};

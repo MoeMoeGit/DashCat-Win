@@ -1,11 +1,9 @@
-//! User settings and preferences
+//! Configuration settings
 
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::io;
 use std::path::PathBuf;
 
-/// Monitor mode - which metric to display
+/// Monitor display mode
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum MonitorMode {
     Combined,
@@ -13,137 +11,108 @@ pub enum MonitorMode {
     Memory,
 }
 
-/// Display mode - how to show the information
+impl Default for MonitorMode {
+    fn default() -> Self {
+        Self::Combined
+    }
+}
+
+/// Display mode for tray icon
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum DisplayMode {
-    Both,        // Percentage + animation
-    AnimOnly,    // Animation only
-    PctOnly,     // Percentage only
-    DualValues,  // CPU% / MEM%
+    Both,
+    AnimOnly,
+    PctOnly,
+    DualValues,
+}
+
+impl Default for DisplayMode {
+    fn default() -> Self {
+        Self::Both
+    }
 }
 
 /// Sleep prevention mode
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum CaffeineMode {
     Off,
-    NoSleep,        // Prevent system sleep, screen can turn off
-    NoDisplaySleep, // Prevent screen from turning off
+    NoSleep,
+    NoDisplaySleep,
 }
 
-/// Supported languages
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum Language {
-    #[serde(rename = "zh")]
-    Chinese,
-    #[serde(rename = "zh-TW")]
-    TraditionalChinese,
-    #[serde(rename = "en")]
-    English,
-    #[serde(rename = "ja")]
-    Japanese,
-    #[serde(rename = "ko")]
-    Korean,
-    #[serde(rename = "de")]
-    German,
-    #[serde(rename = "fr")]
-    French,
-    #[serde(rename = "es")]
-    Spanish,
-    #[serde(rename = "pt-BR")]
-    PortugueseBrazil,
-    #[serde(rename = "it")]
-    Italian,
-    #[serde(rename = "ru")]
-    Russian,
-}
-
-impl Default for Language {
+impl Default for CaffeineMode {
     fn default() -> Self {
-        // Try to detect system language
-        Self::English
+        Self::Off
     }
 }
 
-/// Main application settings
+/// Application settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
-    /// Monitor mode
     pub monitor_mode: MonitorMode,
-    
-    /// Display mode
     pub display_mode: DisplayMode,
-    
-    /// Sleep prevention mode
     pub caffeine_mode: CaffeineMode,
-    
-    /// Save images to clipboard history
     pub save_images: bool,
-    
-    /// Days to keep clipboard history
-    pub history_days: u32,
-    
-    /// Reverse mouse wheel
     pub reverse_mouse_wheel: bool,
-    
-    /// Launch at Windows startup
     pub launch_at_startup: bool,
-    
-    /// UI language
-    pub language: Language,
+    pub language: String,
+    pub history_limit: usize,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            monitor_mode: MonitorMode::Combined,
-            display_mode: DisplayMode::Both,
-            caffeine_mode: CaffeineMode::Off,
+            monitor_mode: MonitorMode::default(),
+            display_mode: DisplayMode::default(),
+            caffeine_mode: CaffeineMode::default(),
             save_images: false,
-            history_days: 30,
             reverse_mouse_wheel: false,
             launch_at_startup: false,
-            language: Language::default(),
+            language: "en".to_string(),
+            history_limit: 50,
         }
     }
 }
 
 impl Settings {
-    /// Get the path to the settings file
-    fn settings_path() -> PathBuf {
-        let app_data = std::env::var("APPDATA")
-            .unwrap_or_else(|_| ".".to_string());
-        PathBuf::from(app_data)
-            .join("DashCat")
-            .join("settings.json")
-    }
-
-    /// Load settings from file, or return defaults if not found
-    pub fn load() -> io::Result<Self> {
+    /// Load settings from file
+    pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
         let path = Self::settings_path();
         
-        if !path.exists() {
-            return Ok(Self::default());
+        if path.exists() {
+            let content = std::fs::read_to_string(&path)?;
+            let settings: Settings = serde_json::from_str(&content)?;
+            Ok(settings)
+        } else {
+            Ok(Self::default())
         }
-
-        let content = fs::read_to_string(&path)?;
-        let settings: Settings = serde_json::from_str(&content)
-            .unwrap_or_else(|_| Self::default());
-        
-        Ok(settings)
     }
 
     /// Save settings to file
-    pub fn save(&self) -> io::Result<()> {
+    pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
         let path = Self::settings_path();
         
-        // Ensure directory exists
+        // Create parent directory if needed
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
+            std::fs::create_dir_all(parent)?;
         }
-
+        
         let content = serde_json::to_string_pretty(self)?;
-        fs::write(&path, content)?;
+        std::fs::write(&path, content)?;
         
         Ok(())
+    }
+
+    /// Get the settings file path
+    fn settings_path() -> PathBuf {
+        // On Windows this will be %APPDATA%\DashCat\settings.json
+        // On Linux for testing: ~/.local/share/DashCat/settings.json
+        if let Some(data_dir) = std::env::var_os("APPDATA") {
+            PathBuf::from(data_dir).join("DashCat").join("settings.json")
+        } else if let Some(home) = std::env::var_os("HOME") {
+            PathBuf::from(home).join(".local/share/DashCat/settings.json")
+        } else {
+            PathBuf::from("settings.json")
+        }
     }
 }

@@ -1,39 +1,26 @@
-//! DashCat-Win - Windows system tray cat
-//!
-//! A lightweight Windows system tray application that combines:
+//! DashCat for Windows - A lightweight system tray application
+//! 
+//! Features:
 //! - Clipboard history management
 //! - System monitoring (CPU/Memory)
-//! - Sleep prevention
+//! - Sleep prevention (Caffeine)
 //! - Mouse wheel reversal
 
-#![windows_subsystem = "windows"]
+#![allow(unused)]
 
 mod config;
-mod tray;
 
-use std::sync::Arc;
-use tray::TrayApp;
+use config::Settings;
 
 fn main() {
-    // Initialize logging (to file for debugging)
-    init_logging();
-
-    // Load configuration
-    let config = config::Settings::load().unwrap_or_default();
-
-    // Create and run tray application
-    let app = Arc::new(TrayApp::new(config));
+    println!("DashCat-Win v0.1.0");
+    println!("Loading settings...");
     
-    if let Err(e) = app.run() {
-        eprintln!("Error: {}", e);
-    }
-}
-
-fn init_logging() {
-    // For Windows GUI apps, logging to file
-    // In release, we may skip this entirely
-    #[cfg(debug_assertions)]
-    {
-        // Debug mode: also log to stdout (visible in terminal if attached)
-    }
+    let settings = Settings::load().unwrap_or_default();
+    
+    println!("Monitor mode: {:?}", settings.monitor_mode);
+    println!("Caffeine mode: {:?}", settings.caffeine_mode);
+    
+    // TODO: Implement tray icon and full functionality
+    println!("DashCat-Win is starting...");
 }
