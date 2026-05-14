@@ -14,7 +14,10 @@ impl TrayMenu {
         self.hmenu = CreatePopupMenu().unwrap_or_default();
 
         // Version info (grayed out, first line)
-        let _ = AppendMenuW(self.hmenu, MF_STRING | MF_GRAYED, 0, w!("DashCat v0.1.0"));
+        let version = env!("CARGO_PKG_VERSION");
+        let version_text = format!("DashCat v{}", version);
+        let version_wide: Vec<u16> = version_text.encode_utf16().chain(std::iter::once(0)).collect();
+        let _ = AppendMenuW(self.hmenu, MF_STRING | MF_GRAYED, 0, PCWSTR(version_wide.as_ptr()));
         let _ = AppendMenuW(self.hmenu, MF_SEPARATOR, 0, w!(""));
 
         // Monitor section

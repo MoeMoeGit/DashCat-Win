@@ -112,15 +112,19 @@ unsafe fn create_icon_from_bitmap(data: &[u8], w: i32, h: i32) -> Result<HICON> 
 
     let mask = vec![0u8; (w * h) as usize];
     let hbm_mask = CreateBitmap(w, h, 1, 1, Some(mask.as_ptr() as *const _));
-    if hbm_mask.is_invalid() { DeleteObject(hbm_color); return Err(Error::from(HRESULT(-2))); }
+    if hbm_mask.is_invalid() {
+        DeleteObject(hbm_color);
+        return Err(Error::from(HRESULT(-2)));
+    }
 
     let info = ICONINFO { fIcon: BOOL(1), xHotspot: 0, yHotspot: 0, hbmMask: hbm_mask, hbmColor: hbm_color };
-    let hicon = CreateIconIndirect(&info)?;
+    let hicon = CreateIconIndirect(&info);
 
+    // Always clean up bitmaps - CreateIconIndirect copies the data
     DeleteObject(hbm_color);
     DeleteObject(hbm_mask);
 
-    Ok(hicon)
+    hicon.map_err(|e| Error::from(e))
 }
 
 impl Default for TrayIcon { fn default() -> Self { Self::new() } }
