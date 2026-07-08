@@ -44,3 +44,7 @@ Thumbs.db
 .codeium/
 .tabnine/
 .supermaven/
+
+# Additional AI tools
+.mimocode/
+.agents/
