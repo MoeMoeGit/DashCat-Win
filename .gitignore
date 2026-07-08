@@ -1,6 +1,46 @@
+# Rust build artifacts
 /target
+*.lock
+
+# Cargo
 /.cargo
-/.git
+
+# Windows binaries
 *.exe
 *.dll
 *.pdb
+
+# macOS
+.DS_Store
+Thumbs.db
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.code-workspace
+
+# AI tools
+.claude/
+.claude.json
+.claude.local.json
+.cursor/
+.cursorrules
+.windsurf/
+.windsurfrules
+.continue/
+.aider*
+.copilot/
+.codeium/
+.tabnine/
+.supermaven/
