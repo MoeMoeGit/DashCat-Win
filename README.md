@@ -48,3 +48,7 @@
 ---
 
 MIT License
+
+## 开发文档
+
+项目规则见 [AGENTS.md](AGENTS.md)，开发导航见 [handbook/README.md](handbook/README.md)。
